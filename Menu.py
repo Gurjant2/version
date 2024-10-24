@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import ttk
 from PIL import Image
+from datetime import date
 
 class SampleApp(ctk.CTk):
     def __init__(self):
@@ -26,11 +27,11 @@ class BasePage(ctk.CTkFrame):
 
     def create_navigation_buttons(self, master):
         button_data = [
-            ("images/home.png", HomePage),
-            ("images/chart.png", Chart),
-            ("images/AI.png", AI),
-            ("images/user.png", UserPage),
-            ("images/icon.png", IconPage)
+            ("version/images/home.png", HomePage),
+            ("version/images/chart.png", Chart),
+            ("version/images/icon.png", IconPage),
+            ("version/images/AI.png", AI),
+            ("version/images/user.png", UserPage)   
         ]
 
         for index, (image_path, frame_class) in enumerate(button_data):
@@ -51,8 +52,8 @@ class BasePage(ctk.CTkFrame):
 class HomePage(BasePage):
     def __init__(self, master):
         super().__init__(master)
-        logo = ctk.CTkImage(light_image=Image.open("images/light_logo.png"),
-                            dark_image=Image.open("images/dark_logo.png"),
+        logo = ctk.CTkImage(light_image=Image.open("version/images/light_logo.png"),
+                            dark_image=Image.open("version/images/dark_logo.png"),
                             size=(275, 77))
         logo_label = ctk.CTkLabel(self, text="", image=logo)
         logo_label.place(relx=0.5, rely=0.1, anchor=ctk.CENTER)
@@ -70,7 +71,6 @@ class AI(BasePage):
 class IconPage(BasePage):
     def __init__(self, master):
         super().__init__(master)
-        # Additional initialization for IconPage can go here
 
 class UserPage(BasePage):
     def __init__(self, master):
