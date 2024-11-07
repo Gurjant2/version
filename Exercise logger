@@ -1,0 +1,202 @@
+import customtkinter as ctk
+import sqlite3
+from tkinter import TclError  # Import TclError for error handling
+
+# Initialize the app
+app = ctk.CTk()
+app.geometry("700x650")
+app.title("Exercise Logger")
+
+# Database path
+db_path = 'C:\\Users\\gsing\\OneDrive\\Documents\\FITLog\\fitness.db'  # Ensure this path points to the correct location of fitness.db
+
+# Initialize database
+def initialize_database():
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Presets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            data TEXT
+        )
+    """)
+    connection.commit()
+    connection.close()
+
+initialize_database()
+
+# Fetch muscle groups
+def fetch_muscle_groups():
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    cursor.execute("SELECT name FROM MuscleGroups")
+    muscle_groups = [row[0] for row in cursor.fetchall()]
+    connection.close()
+    return muscle_groups
+
+# Fetch exercises for a selected muscle group
+def fetch_exercises(muscle_group):
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    cursor.execute("""
+        SELECT Exercises.name
+        FROM Exercises
+        JOIN MuscleGroups ON Exercises.muscle_group_id = MuscleGroups.id
+        WHERE MuscleGroups.name = ?
+    """, (muscle_group,))
+    exercises = [row[0] for row in cursor.fetchall()]
+    connection.close()
+    return exercises
+
+# Main data structure to hold selected exercises with sets
+selected_exercises = {}
+
+# Function to add an exercise with a single set to the main window
+def add_exercise_to_list(exercise_name):
+    if exercise_name not in selected_exercises:
+        selected_exercises[exercise_name] = []
+    add_set_to_exercise(exercise_name)
+    show_main_screen()
+
+# Function to add a set entry for an exercise
+def add_set_to_exercise(exercise_name):
+    set_data = {"reps": ctk.StringVar(value=""), "weight": ctk.StringVar(value="")}  # Initialize as empty (None)
+    selected_exercises[exercise_name].append(set_data)
+    display_exercises()
+
+# Function to delete a set for an exercise
+def delete_set_from_exercise(exercise_name, set_index):
+    if exercise_name in selected_exercises and 0 <= set_index < len(selected_exercises[exercise_name]):
+        del selected_exercises[exercise_name][set_index]  # Delete the set at the specified index
+        if not selected_exercises[exercise_name]:  # Remove exercise if it has no sets left
+            del selected_exercises[exercise_name]
+        display_exercises()
+
+# Function to validate the entry values (converting empty fields to None)
+def validate_entry(var, var_type=int):
+    try:
+        value = var.get()
+        if value == "":
+            return None
+        return var_type(value)
+    except (ValueError, TclError):
+        return None
+
+# Function to display the exercises and their sets
+# Function to display the exercises and their sets
+def display_exercises():
+    for widget in main_frame.winfo_children():
+        widget.destroy()  # Clear current widgets
+
+    for exercise, sets in selected_exercises.items():
+        # Exercise header
+        exercise_label = ctk.CTkLabel(main_frame, text=exercise, font=("Arial", 14, "bold"))
+        exercise_label.pack(pady=(10, 0), anchor="w")
+
+        # Display sets
+        for i, set_data in enumerate(sets, start=1):
+            set_frame = ctk.CTkFrame(main_frame)
+            set_frame.pack(fill="x", pady=2)
+
+            set_label = ctk.CTkLabel(set_frame, text=f"Set {i}", width=50)
+            set_label.grid(row=0, column=0, padx=5)
+
+            # Label for Reps entry
+            reps_label = ctk.CTkLabel(set_frame, text="Reps:")
+            reps_label.grid(row=0, column=1, padx=(5, 0))
+
+            # Reps entry with placeholder text
+            reps_entry = ctk.CTkEntry(set_frame, textvariable=set_data["reps"], width=80, placeholder_text="Reps")
+            reps_entry.grid(row=0, column=2, padx=5)
+
+            # Label for Weight entry
+            weight_label = ctk.CTkLabel(set_frame, text="Weight (kg):")
+            weight_label.grid(row=0, column=3, padx=(5, 0))
+
+            # Weight entry with placeholder text
+            weight_entry = ctk.CTkEntry(set_frame, textvariable=set_data["weight"], width=80, placeholder_text="Weight (kg)")
+            weight_entry.grid(row=0, column=4, padx=5)
+
+            # Delete button for the set
+            delete_button = ctk.CTkButton(
+                set_frame, text="Delete", command=lambda ex=exercise, idx=i-1: delete_set_from_exercise(ex, idx),
+                width=80, fg_color="red"
+            )
+            delete_button.grid(row=0, column=5, padx=5)
+
+            # Bindings to validate and handle empty values
+            reps_entry.bind("<FocusOut>", lambda event, var=set_data["reps"]: validate_entry(var, int))
+            weight_entry.bind("<FocusOut>", lambda event, var=set_data["weight"]: validate_entry(var, float))
+
+
+        # Add Set button for the exercise
+        add_set_button = ctk.CTkButton(
+            main_frame, text="Add Set",
+            command=lambda ex=exercise: add_set_to_exercise(ex),
+            width=100
+        )
+        add_set_button.pack(pady=(5, 10))
+
+# Function to show the exercise selection screen
+def show_exercise_selection_screen():
+    main_frame.pack_forget()  # Hide the main frame
+    selection_frame.pack(fill="both", expand=True)  # Show the selection frame
+    display_muscle_groups()
+
+# Function to show the main screen
+def show_main_screen():
+    selection_frame.pack_forget()  # Hide the selection frame
+    main_frame.pack(fill="both", expand=True)  # Show the main frame
+    display_exercises()
+
+# Display muscle groups in the selection frame
+def display_muscle_groups():
+    for widget in selection_frame.winfo_children():
+        widget.destroy()  # Clear current widgets
+
+    muscle_groups = fetch_muscle_groups()
+    for group in muscle_groups:
+        muscle_group_button = ctk.CTkButton(
+            selection_frame, text=group,
+            command=lambda g=group: display_exercises_for_group(g)
+        )
+        muscle_group_button.pack(fill="x", pady=2)
+
+    # Back button
+    back_button = ctk.CTkButton(selection_frame, text="Back to Main Screen", command=show_main_screen)
+    back_button.pack(pady=10)
+
+# Display exercises for the selected muscle group
+def display_exercises_for_group(muscle_group):
+    for widget in selection_frame.winfo_children():
+        widget.destroy()  # Clear current widgets
+
+    exercises = fetch_exercises(muscle_group)
+    for exercise in exercises:
+        exercise_button = ctk.CTkButton(
+            selection_frame, text=exercise,
+            command=lambda e=exercise: add_exercise_to_list(e)
+        )
+        exercise_button.pack(fill="x", pady=2)
+
+    # Back button to return to muscle groups list
+    back_button = ctk.CTkButton(selection_frame, text="Back to Muscle Groups", command=display_muscle_groups)
+    back_button.pack(pady=10)
+
+# Main UI layout
+main_frame = ctk.CTkScrollableFrame(app, width=600, height=500)
+main_frame.pack(fill="both", expand=True)
+
+# Exercise selection frame (initially hidden)
+selection_frame = ctk.CTkFrame(app, width=600, height=500)
+
+# Button to open the exercise selection screen
+add_exercise_button = ctk.CTkButton(app, text="Add Exercise", command=show_exercise_selection_screen)
+add_exercise_button.pack(pady=10)
+
+# Initialize the display with main screen
+display_exercises()
+
+# Start the application
+app.mainloop()
